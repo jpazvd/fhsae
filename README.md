@@ -3,7 +3,7 @@
 ## Abstract
 fhsae Supports Fay-Herriot's EBLUP small area estimation methods. Translated from R's SAE package from Molina and Marhuenda.
 
-##Suggested Citation
+## Suggested Citation
 [Paul Corral & William Seitz & Joao Pedro Azevedo & Minh Cong Nguyen, 2018. "FHSAE: Stata module to fit an area level Fay-Herriot model," Statistical Software Components S458495, Boston College Department of Economics.](https://ideas.repec.org/c/boc/bocode/s458495.html)
 
 ## References
