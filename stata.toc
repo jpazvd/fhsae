@@ -1,7 +1,7 @@
-v 0.0.0
-d Materials by João Pedro Azevedo
+v 1.0
+d Materials by Paul Corral, William Seitz, João Pedro Azevedo, and Minh Cong Nguyen
 d World Bank
-d jazevedo@worldbank.org
-d http://www.worldbank.org/en/about/people/j/joao-pedro-azevedo
+d jazevedo@worldbank.org, mnguyen3@worldbank.org, pcorralrodas@worldbank.org
+d 
  
 p fhsae
