@@ -46,8 +46,9 @@ program define fhsae, eclass
 set more off
 
 if ("`censuspop'"!="" & "`aggarea'"!="") local doagg = 1
+else local doagg=0
 
-if (`doagg'==0 & ("`censuspop'"=="" | "`aggarea'"=="")) {
+if (`doagg'==0 & ("`censuspop'"!="" | "`aggarea'"!="")) {
 	dis as error "For aggragete results both a census population for the area, along for the area at which to aggregate are needed"
 	error 198
 	exit
@@ -159,8 +160,6 @@ if (`doagg'==1){
 }
 
 
-
-
 noi{
 	 mat rownames `beta' = `indeps' _cons
 	 mat `beta' = `beta''
@@ -219,6 +218,7 @@ noi{
 			mata: V   = *(_Fh[1,2])
 			mata: g2d = quadcross(gamma',gamma'):*(quadcross(quadcross(_x1',V)',_x1'))	
 			mata : _mse = diag(g1d+2*g3d) + g2d	
+			//mata : st_view(uu=.,.,"HID","`sm'")
 			
 			//mata : _mse = diagonal(_mse)
 					
@@ -608,6 +608,10 @@ function _remlopti(y,x,sigma2,Aes){
 	k=0
 	while((diff>prec) &(k<maxiter)){
 		k=k+1
+		if ((mod(k,100)==0) | (k==1)){
+			printf("{txt}Iteration %f", k)
+			printf("{txt}: Difference = %f\n", diff)
+		}
 		vi = 1:/(Aes[k]:+sigma2)
 		_varbeta = invsym(quadcross(x,(1:/(Aes[k]:+sigma2)),x))
 		P  = diag(vi) -quadcross(quadcross(quadcross(x,diag(vi)),_varbeta)',quadcross(x,diag(vi)))
