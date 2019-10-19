@@ -228,7 +228,7 @@ noi{
 				qui:drop if `sm' == 0
 				groupfunction, sum(`censuspop') by(`aggarea')
 				sort `aggarea'
-				gen sm = !missing(`aggarea')
+				qui:gen sm = !missing(`aggarea')
 				mata: Naggr     = st_data(.,"`censuspop'","sm")
 				mata: `aggarea' = st_data(.,"`aggarea'","sm")			
 			restore
@@ -236,7 +236,7 @@ noi{
 			qui:levelsof `aggarea', local(_mr)
 			local _miraion
 			foreach x of local _mr{
-				gen _`x' = (`aggarea'==`x')*`censuspop' if `sm'==1
+				qui:gen _`x' = (`aggarea'==`x')*`censuspop' if `sm'==1
 				local _miraion  `_miraion' _`x'
 			}
 			
@@ -244,7 +244,7 @@ noi{
 			//mata: myaggr_mse = quadcross(RN,(_mse)):/(Naggr:^2)
 			mata: myaggr_mse = (quadcross(quadcross(RN,_mse)',RN)):/(quadcolsum(RN):^2)'
 			mata: myaggr     = quadcross(RN,Y):/quadcolsum(RN)'
-			mata: D=(`aggarea',myaggr,diagonal(myaggr_mse))
+			mata: D=(`aggarea',myaggr,diagonal(myaggr_mse), Naggr)
 			mata: st_local("_numobs",strofreal(rows(D)))
 			drop `_miraion'	
 			
@@ -255,8 +255,9 @@ noi{
 				gen area     = .
 				gen estimate = .
 				gen mse      = .				
+				gen weight   = .
 				
-				mata: st_store(.,tokens("area estimate mse"),.,D)
+				mata: st_store(.,tokens("area estimate mse weight"),.,D)
 				
 				tempfile homer
 				save `homer'
@@ -606,7 +607,7 @@ function _remlopti(y,x,sigma2,Aes){
 	p = cols(x)
 	maxiter = strtoreal(st_local("maxiter"))
 	k=0
-	while((diff>prec) &(k<maxiter)){
+	while((diff>prec) & (k<=maxiter)){
 		k=k+1
 		if ((mod(k,100)==0) | (k==1)){
 			printf("{txt}Iteration %f", k)
