@@ -22,7 +22,6 @@
 
 cap set matastrict off
 cap prog drop fhsae
-clear mata
 program define fhsae, eclass
 	version 11.2
 	#delimit ;
