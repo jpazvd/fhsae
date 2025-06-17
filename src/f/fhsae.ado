@@ -49,7 +49,7 @@ if ("`censuspop'"!="" & "`aggarea'"!="") local doagg = 1
 else local doagg=0
 
 if (`doagg'==0 & ("`censuspop'"!="" | "`aggarea'"!="")) {
-	dis as error "For aggragete results both a census population for the area, along for the area at which to aggregate are needed"
+	dis as error "For aggregate results, both a census population and an area variable for aggregation are required."
 	error 198
 	exit
 }
