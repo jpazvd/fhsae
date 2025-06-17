@@ -59,6 +59,9 @@
 {opt FHCV:predict(newvarname)} New variable name for predicted Fay Herriot small area estimate coefficient of variation
 
 {phang}
+{opt GAMMA:predict(newvarname)} New variable name for predicted Fay Herriot estimated Gamma. The eblup is the result of xb*gamma+(1-gamma)*direct
+
+{phang}
 {opt DSE:predict(newvarname)} New variable name for predicted Fay Herriot direct estimate standard error 
 
 {phang}
