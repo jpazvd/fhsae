@@ -1,0 +1,8 @@
+v 1.0
+d 'FHSAE': Stata module to fit an area level Fay-Herriot model
+d 
+d Distribution-Date: April 28, 2018
+d License: MIT
+d 
+F src/f/fhsae.ado
+F src/f/fhsae.sthlp
