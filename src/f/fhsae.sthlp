@@ -24,8 +24,11 @@
 {opt DCV:predict(newvarname)}
 {opt AREA:predict(newvarname)}
 {opt GAMMA:predict(newvarname)}
+{opt censuspop(varname)}
+{opt aggarea(varname)}
 {opt OUT:sample}
-{opt NONEG:ative}]
+{opt NONEG:ative}
+{opt force}]
 
 {title:Description}
 
@@ -66,6 +69,15 @@
 
 {phang}
 {opt OUT:sample} Requests that predictions be made for out of sample observations (requires any of the options fhpredict, fhsepredict, fhcvpredict to be specified )
+
+{phang}
+{opt aggarea(varname numeric)} Variable containing the area indicator for the level at which we want to aggregate results. Note that the aggarea should have less areas than the modelling level. This option must be used with censuspop() and the force options. Also note that the aggregation of areas is only possible the REML method.
+
+{phang}
+{opt censuspop(varname numeric)} Variable containing the population for the area. Note that the population corresponds to each location for the disaggregated levels which correspond to the modelling level. Note that the censuspop() option must be used with aggarea() and the force options. Also note that the aggregation of areas is only possible the REML method.
+
+{phang}
+{opt force} The force option is required when requesting aggregation of estimates. This option must be used jointly with censuspop() and aggarea() options. This option serves as a reminder that the data in memory will be replaced by a new dataset with the estimates, mean squared errors, and the aggarea identifiers. Also note that the aggregation of areas is only possible the REML method.
 
 {phang}
 {opt NONEG:ative} Requests that negative predictions be set to 0.

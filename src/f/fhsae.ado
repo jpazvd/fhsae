@@ -1,4 +1,4 @@
-*! fhsae April 28, 2018
+*! fhsae Ocotber 19, 2019 - added mse vcov
 * Translated into Stata from R's SAE package by Molina and Marhuenda 
 * Paul Corral (World Bank Group - Poverty and Equity Global Practice)
 * William Seitz (World Bank Group - Poverty and Equity Global Practice)
@@ -21,6 +21,7 @@
 
 
 cap set matastrict off
+cap prog drop fhsae
 clear mata
 program define fhsae, eclass
 	version 11.2
@@ -36,22 +37,60 @@ program define fhsae, eclass
 	 DCVpredict(string)
 	 AREApredict(string)
 	 GAMMApredict(string)
+	 censuspop(varlist max=1 numeric)
+	 aggarea(varlist max=1 numeric)
 	 OUTsample
-	 NONEGative];
+	 NONEGative
+	 force];
 #delimit cr		
 set more off
 
+if ("`censuspop'"!="" & "`aggarea'"!="") local doagg = 1
+else local doagg=0
+
+if (`doagg'==0 & ("`censuspop'"!="" | "`aggarea'"!="")) {
+	dis as error "For aggregate results, both a census population and an area variable for aggregation are required."
+	error 198
+	exit
+}
+if (`doagg'==1 & lower("`method'")!="reml"){
+	dis as error "Aggregation of results is only possible with REML"
+	error 198
+	exit	
+}
+
+
+
+if (`doagg'==1 & "`outsample'"==""){
+	dis as error "Aggregation must be used with outsample options"
+	error 198
+	exit
+} 
+
+if (`doagg'==1 & "`force'"==""){
+	dis as error "When requesting aggregate results, users must specify the force option since the data in memory will be replaced"
+	error 198
+	exit
+}
+
 if upper("`method'")=="CHANDRA"{
-	_fAyHeRRiot `varlist', revar(`revar') fhpredict(`fhpredict') fhsepredict(`fhsepredict') ///
+	_fAyHeRRiot `varlist' `if' `in', revar(`revar') fhpredict(`fhpredict') fhsepredict(`fhsepredict') ///
 	fhcvpredict(`fhcvpredict') dsepredict(`dsepredict') dcvpredict(`dcvpredict') ///
 	gammapredict(`gammapredict') `outsample' `nonegative' areapredict(`areapredict')
 }
 else{
+
+
 marksample touse11
 tokenize `varlist'
 local depvar `1'
 macro shift
 local indeps `*'
+
+if (`doagg'==1){
+	sort `depvar' `aggarea'
+	qui:replace `touse11' = 0 if missing(`aggarea')
+}
 
 //TEMP VARS AND NAMES
 tempname beta vcov tomata s2u loglike aic bic numobs aicc
@@ -61,8 +100,9 @@ tempvar lev yhat res touse out
 if("`outsample'"!=""){
 	qui:gen `out' = `depvar'==.
 	foreach x of local indeps{
-		qui:replace `out' = 0 if `x' == .
+		qui:replace `out' = 0 if missing(`x')
 	}
+	if (`doagg'==1) qui:replace `out' = 0 if missing(`aggarea')
 }
 
 
@@ -92,10 +132,10 @@ local p50=r(p50)
 local `tomata' revar region depvar indeps
 
 foreach x of local `tomata'{
-		mata:st_view(`x'=.,.,"``x''", "`touse11'")	
-	}
+	mata:st_view(`x'=.,.,"``x''", "`touse11'")	
+}
 
-mata: _Fh=_fhmoment(depvar,indeps,revar,`p50')
+noi:mata: _Fh=_fhmoment(depvar,indeps,revar,`p50')
 mata: st_matrix("`beta'",*(_Fh[1,1]))
 mata: st_matrix("`vcov'",*(_Fh[1,2]))
 mata: fh = *(_Fh[1,3])
@@ -110,6 +150,14 @@ mata: fhcv = 100*(fhse:/fh)
 mata: gamma = *(_Fh[1,8])
 mata: st_matrix("`s2u'", *(_Fh[1,9]))
 mata: st_matrix("`numobs'", *(_Fh[1,10]))
+
+if (`doagg'==1){
+	tempvar g1 g3
+	qui: gen double `g1'=.
+	qui: gen double `g3'=.
+	mata:st_store(.,tokens("`g1'"),"`touse11'",*(_Fh[1,12]))
+	mata:st_store(.,tokens("`g3'"),"`touse11'",*(_Fh[1,13]))	
+}
 
 
 noi{
@@ -141,8 +189,86 @@ noi{
 			if(("`x'"=="fh"|"`x'"=="fhse"|"`x'"=="fhcv") & "`outsample'"!=""){
 				mata: st_store(.,tokens("``x'predict'"),"`out'",`x'_out)
 			}	
-		}	 
+		}
 	 }
+	 
+	 if (`doagg'==1){
+		if ("`gammapredict'"=="" | "`fhpredict'"==""){
+			dis as error "When requesting aggregation you must specify the gammapredict and fhpredict options"
+			error 198
+			exit
+		}
+*===============================================================================		
+//The code below does the aggregation of the Fay Herriot
+*===============================================================================
+			tempvar sm _bd
+			qui:gen `sm' =  `touse11'==1	| `out'==1
+			qui: replace `sm' = 0 if missing(`aggarea')
+			qui:clonevar `_bd' = `gammapredict'
+			qui:replace  `_bd' = 1 if missing(`gammapredict')
+			qui:replace  `g1'  = `s2u'[1,1] if missing(`g1')  //Non sampled areas
+			qui:replace  `g3'  = 0 if missing(`g3')
+			
+			//MSE
+			mata: st_view(_x1=.,.,"`indeps'","`sm'")
+				mata: _x1 = _x1,J(rows(_x1),1,1)
+			mata: st_view(g1d=.,.,"`g1'","`sm'")
+			mata: st_view(g3d=.,.,"`g3'","`sm'")
+			mata: st_view(gamma = .,.,"`_bd'","`sm'")			
+			mata: V   = *(_Fh[1,2])
+			mata: g2d = quadcross(gamma',gamma'):*(quadcross(quadcross(_x1',V)',_x1'))	
+			mata : _mse = diag(g1d+2*g3d) + g2d	
+			//mata : st_view(uu=.,.,"HID","`sm'")
+			
+			//mata : _mse = diagonal(_mse)
+					
+			mata : Y   = st_data(.,"`fhpredict'","`sm'")
+						
+			preserve
+				qui:drop if `sm' == 0
+				groupfunction, sum(`censuspop') by(`aggarea')
+				sort `aggarea'
+				qui:gen sm = !missing(`aggarea')
+				mata: Naggr     = st_data(.,"`censuspop'","sm")
+				mata: `aggarea' = st_data(.,"`aggarea'","sm")			
+			restore
+			
+			qui:levelsof `aggarea', local(_mr)
+			local _miraion
+			foreach x of local _mr{
+				qui:gen _`x' = (`aggarea'==`x')*`censuspop' if `sm'==1
+				local _miraion  `_miraion' _`x'
+			}
+			
+			mata: RN     = st_data(.,"`_miraion'","`sm'")
+			//mata: myaggr_mse = quadcross(RN,(_mse)):/(Naggr:^2)
+			mata: myaggr_mse = (quadcross(quadcross(RN,_mse)',RN)):/(quadcolsum(RN):^2)'
+			mata: myaggr     = quadcross(RN,Y):/quadcolsum(RN)'
+			mata: D=(`aggarea',myaggr,diagonal(myaggr_mse), Naggr)
+			mata: st_local("_numobs",strofreal(rows(D)))
+			drop `_miraion'	
+			
+			preserve
+			qui{
+				clear
+				set obs `_numobs'
+				gen area     = .
+				gen estimate = .
+				gen mse      = .				
+				gen weight   = .
+				
+				mata: st_store(.,tokens("area estimate mse weight"),.,D)
+				
+				tempfile homer
+				save `homer'
+			}			
+			restore
+*===============================================================================		
+//End of aggregation code
+*===============================================================================
+			
+
+		}
 
 
 //POST RESULTS
@@ -168,6 +294,8 @@ display in gr "AIC" _col(45) in gr "=" _col(50) in ye e(aic)
 display in gr "AICc" _col(45) in gr "=" _col(50) in ye e(aicc)
 display in gr "BIC" _col(45) in gr "=" _col(50) in ye e(bic)
 di as text "{hline 61}"
+
+ if (`doagg'==1) use `homer', clear
 }
 end
 
@@ -303,13 +431,14 @@ mata
 
 function _fhmoment(y, x, sigma2, Aes){
 	pointer(real matrix) rowvector _fhval
-	_fhval = J(1,11,NULL)
+	_fhval = J(1,13,NULL)
 	x=x,J(rows(x),1,1)
-	noneg = (st_local("nonegative")!="")
+	noneg  = (st_local("nonegative")!="")
 	method = st_local("method")
+	doagg  = st_local("doagg")=="1"
 	
-	if (method=="FH") xb = _fhopti(y,x,sigma2,Aes)
-	if (method=="ML") xb = _mlopti(y,x,sigma2,Aes)
+	if (method=="FH")   xb = _fhopti(y,x,sigma2,Aes)
+	if (method=="ML")   xb = _mlopti(y,x,sigma2,Aes)
 	if (method=="REML") xb = _remlopti(y,x,sigma2,Aes)
 	_beta    = *xb[1,1]
 	_varbeta = *xb[1,2]
@@ -356,10 +485,10 @@ function _fhmoment(y, x, sigma2, Aes){
 	if (method=="REML"){
 		vara = 2/sumad2
 		g1d  = sigma2:*(1:-bd)
-		g2d  = (bd:^2):*quadrowsum((quadcross(x',(_varbeta)):*x))
+		g2d  = quadcross(bd',bd'):*quadcross(quadcross(x',_varbeta)',x')
 		g3d  = (bd:^2):*(vara:/(Aes:+sigma2))
-		
-		_mse    = g1d + g2d + 2*g3d
+
+		_mse    = g1d + diagonal(g2d) + 2*g3d
 	}
 	_fhval[1,1] = &(_beta)    //beta
 	_fhval[1,2] = &(_varbeta) //vcov
@@ -372,6 +501,8 @@ function _fhmoment(y, x, sigma2, Aes){
 	_fhval[1,9] = &(Aes)      //sigma2u
 	_fhval[1,10] = &(m)       //Num obs
 	_fhval[1,11] = &(_aicc)   //AICc
+	_fhval[1,12] = &(g1d)   //G1d
+	_fhval[1,13] = &(g3d)   //g3d
 	
 	return(_fhval)
 }
@@ -414,7 +545,10 @@ function _fhopti(y,x,sigma2,Aes){
 		Aes  = Aes,(Aes[k] +s/F)
 		diff = abs((Aes[k+1] - Aes[k])/Aes[k])
 	}
-	if (diff>prec) display("CAUTION: Convergence not achieved")
+	if (diff>prec){
+		display("CAUTION: Convergence not achieved")
+		diff
+	}
 	k=k+1
 	Aes = max((Aes[k],0))
 	_varbeta = invsym(quadcross(x,(1:/(Aes:+sigma2)),x))
@@ -448,7 +582,10 @@ function _mlopti(y,x,sigma2,Aes){
 		Aes = Aes,(Aes[k] +s/F)
 		diff = abs((Aes[k+1] - Aes[k])/Aes[k])
 	}
-	if (diff>prec) display("CAUTION: Convergence not achieved")
+	if (diff>prec){
+		display("CAUTION: Convergence not achieved")
+		diff
+	}
 	k=k+1
 	Aes = max((Aes[k],0))
 	_varbeta = invsym(quadcross(x,(1:/(Aes:+sigma2)),x))
@@ -470,8 +607,12 @@ function _remlopti(y,x,sigma2,Aes){
 	p = cols(x)
 	maxiter = strtoreal(st_local("maxiter"))
 	k=0
-	while((diff>prec) &(k<maxiter)){
+	while((diff>prec) & (k<=maxiter)){
 		k=k+1
+		if ((mod(k,100)==0) | (k==1)){
+			printf("{txt}Iteration %f", k)
+			printf("{txt}: Difference = %f\n", diff)
+		}
 		vi = 1:/(Aes[k]:+sigma2)
 		_varbeta = invsym(quadcross(x,(1:/(Aes[k]:+sigma2)),x))
 		P  = diag(vi) -quadcross(quadcross(quadcross(x,diag(vi)),_varbeta)',quadcross(x,diag(vi)))
@@ -482,7 +623,10 @@ function _remlopti(y,x,sigma2,Aes){
 		Aes = Aes,(Aes[k] +s/F)
 		diff = abs((Aes[k+1] - Aes[k])/Aes[k])
 	}
-	if (diff>prec) display("CAUTION: Convergence not achieved")
+	if (diff>prec){
+		display("CAUTION: Convergence not achieved")
+		diff
+	}
 	k=k+1
 	Aes = max((Aes[k],0))
 	_varbeta = invsym(quadcross(x,(1:/(Aes:+sigma2)),x))

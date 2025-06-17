@@ -1,4 +1,4 @@
-# FHSAE: Stata module to fit an area level Fay-Herriot model
+﻿# FHSAE: Stata module to fit an area level Fay-Herriot model
 
 ## Abstract
 fhsae Supports Fay-Herriot's EBLUP small area estimation methods. Translated from R's SAE package from Molina and Marhuenda.
@@ -27,4 +27,22 @@ This module should be installed from within Stata by typing "ssc install fhsae".
 
 ### Keywords
 Fay; Herriot; area level model
+
+## Authors: 
+
+  **Paul Corral**  
+  [pcorralrodas@worldbank.org](mailto:pcorralrodas@worldbank.org)  
+  World Bank  
+
+  **William Seitz**  
+  World Bank  
+
+  **João Pedro Azevedo**  
+  [jazevedo@worldbank.org](mailto:jazevedo@worldbank.org)  
+  World Bank   
+  [personal page](http://www.worldbank.org/en/about/people/j/joao-pedro-azevedo)  
+
+  **Minh Cong Nguyen**  
+  [mnguyen3@worldbank.org](mailto:mnguyen3@worldbank.org)  
+  World Bank  
 
