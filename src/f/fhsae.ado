@@ -194,7 +194,7 @@ noi{
 	 
 	 if (`doagg'==1){
 		if ("`gammapredict'"=="" | "`fhpredict'"==""){
-			dis as error "When requesting aggregation you must specify the gammapredict and fhpredict opitons"
+			dis as error "When requesting aggregation you must specify the gammapredict and fhpredict options"
 			error 198
 			exit
 		}
